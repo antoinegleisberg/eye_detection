@@ -50,11 +50,11 @@ while(True):
 
 
 
-    """cv2.imshow('img1',frame) #display the captured image
+    cv2.imshow('img1',frame) #display the captured image
     key = cv2.waitKey(20)
     if key == 27: # exit on ESC #save on pressing 'y'
         cv2.imwrite(f'C:/Users/hugob/Desktop/Projet INF573/eye_detection/captures/{id}.png',frame)
         cv2.destroyAllWindows()
         print('exited process')
-        break"""
+        break
 #cap.release()
