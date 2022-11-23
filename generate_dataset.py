@@ -18,14 +18,14 @@ class ImageGenerator:
         self.csv_writer = None
         self.next_id = 0
         self.data_folder = Path("data")
+        self.image_folder = Path("data/images")
         self.dataset_name = Path("dataset.csv")
 
     def init_csv(self):
         self.csvfile = open(self.data_folder / self.dataset_name, "a+")
         self.csv_reader = csv.reader(self.csvfile)
         self.csv_writer = csv.writer(self.csvfile)
-        self.next_id = len(list(self.data_folder.iterdir())) - 1
-        print(self.next_id)
+        self.next_id = len(list(self.image_folder.iterdir()))
 
     def launch(self):
         cv2.namedWindow("Dataset Generator")
@@ -35,8 +35,11 @@ class ImageGenerator:
         return videoCapture
 
     def save(self, x: int, y: int):
+        ret, frame = self.videoCapture.read()
+        if not ret:
+            return
         self.csv_writer.writerow([f"{self.next_id}.png", x, y])
-        cv2.imwrite(f"data/{self.next_id}.png", self.videoCapture.read()[1])
+        cv2.imwrite(self.image_folder / Path(f"{self.next_id}.png"), frame)
         self.next_id += 1
 
     def show_random_point(self):
@@ -64,7 +67,6 @@ class ImageGenerator:
 
     def run(self):
         self.init_csv()
-
         self.show_instructions()
         cv2.waitKey(0)
         x, y = self.show_random_point()
