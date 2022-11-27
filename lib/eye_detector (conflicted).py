@@ -37,7 +37,6 @@ class EyeDetector:
             "right_eyebrow": [46, 53, 52, 65, 55, 70, 63, 105, 66, 107],
             "left_eyebrow": [276, 283, 282, 295, 285, 300, 293, 334, 296, 336],
         }
-        self.reference_position = None
 
     def get_frame_landmarks(self) -> None:
         success, image = self.videoCapture.read()
@@ -75,7 +74,7 @@ class EyeDetector:
         image = np.zeros((480, 640, 3), np.uint8)
         image = cv2.putText(
             image,
-            "Please look at the center of the screen and press any key to continue",
+            "Please look at the center of the screen and press enter",
             (50, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
@@ -83,69 +82,43 @@ class EyeDetector:
             2,
             cv2.LINE_AA,
         )
-        cv2.imshow("image", image)
-        cv2.waitKey(0)
-        self.get_frame_landmarks()
-        self.reference_position = {
-            "landmarks": self.landmark,
-            "eyes_coords": self.eyes_coords,
-            "normal": self.normal,
-        }
-
-    @property
-    def normal(self) -> Coordinates:
-        return
-
-    @property
-    def eyes_coords(self):
-        # Get landmarks coords
-        right_eye_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_eye"]
-        }
-        left_eye_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_eye"]
-        }
-        right_iris_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_iris"]
-        }
-        left_iris_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_iris"]
-        }
-
-        # Normalize coords
-        right_eye = Coordinates.normalize_dict({**right_eye_coords, **right_iris_coords})
-        normalized_right_eye_coords = {idx: right_eye[idx] for idx in self.landmark_indices["right_eye"]}
-        normalized_right_iris_coords = {idx: right_eye[idx] for idx in self.landmark_indices["right_iris"]}
-        left_eye = Coordinates.normalize_dict({**left_eye_coords, **left_iris_coords})
-        normalized_left_eye_coords = {idx: left_eye[idx] for idx in self.landmark_indices["left_eye"]}
-        normalized_left_iris_coords = {idx: left_eye[idx] for idx in self.landmark_indices["left_iris"]}
-
-        return {
-            "right_eye": right_eye_coords,
-            "left_eye": left_eye_coords,
-            "right_iris": right_iris_coords,
-            "left_iris": left_iris_coords,
-            "normalized_right_eye": normalized_right_eye_coords,
-            "normalized_left_eye": normalized_left_eye_coords,
-            "normalized_right_iris": normalized_right_iris_coords,
-            "normalized_left_iris": normalized_left_iris_coords,
-        }
 
     @property
     def looking_at(self) -> Direction:
         if self.landmark is None:
             return Direction.CENTER
 
+        # Get landmarks coords
+        right_eye_coords = [
+            Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_eye"]
+        ]
+        left_eye_coords = [
+            Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_eye"]
+        ]
+        right_iris_coords = [
+            Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_iris"]
+        ]
+        left_iris_coords = [
+            Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_iris"]
+        ]
+
+        # Normalize coords
+        right_eye = Coordinates.normalize_list(right_eye_coords + right_iris_coords)
+        right_eye_coords, right_iris_coords = (
+            right_eye[: len(right_eye_coords)],
+            right_eye[len(right_eye_coords) :],  # noqa
+        )
+        left_eye = Coordinates.normalize_list(left_eye_coords + left_iris_coords)
+        left_eye_coords, left_iris_coords = (
+            left_eye[: len(left_eye_coords)],
+            left_eye[len(left_eye_coords) :],  # noqa
+        )
+
         # Calculate centers
-        eye_coords = self.eye_coords
-        right_iris_coords = eye_coords["right_iris"]
-        left_iris_coords = eye_coords["left_iris"]
-        right_iris_center = sum([coord for coord in right_iris_coords.values()], Coordinates(0, 0)) / len(
-            right_iris_coords
-        )
-        left_iris_center = sum([coord for coord in left_iris_coords.values()], Coordinates(0, 0)) / len(
-            left_iris_coords
-        )
+        right_eye_center = sum([coord for coord in right_eye_coords], Coordinates(0, 0)) / len(right_eye_coords)
+        left_eye_center = sum([coord for coord in left_eye_coords], Coordinates(0, 0)) / len(left_eye_coords)
+        right_iris_center = sum([coord for coord in right_iris_coords], Coordinates(0, 0)) / len(right_iris_coords)
+        left_iris_center = sum([coord for coord in left_iris_coords], Coordinates(0, 0)) / len(left_iris_coords)
 
         # Get direction
         # print(right_eye_center, left_eye_center, right_iris_center, left_iris_center)
