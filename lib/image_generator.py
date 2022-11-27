@@ -39,7 +39,7 @@ class ImageGenerator:
         if not ret:
             return
         self.csv_writer.writerow([f"{self.next_id}.png", x, y])
-        cv2.imwrite(self.image_folder / Path(f"{self.next_id}.png"), frame)
+        cv2.imwrite(str(self.image_folder / Path(f"{self.next_id}.png")), frame)
         self.next_id += 1
 
     def show_random_point(self):
