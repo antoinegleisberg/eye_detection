@@ -15,32 +15,36 @@ class LandmarkDetector:
         self.drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
         self.videoCapture = cv2.VideoCapture(0)
         self.image = None
+        self.landmarks = None
 
     def get_frame(self) -> bool:
         success, self.image = self.videoCapture.read()
         return success
 
-    def draw_landmarks(self, face_landmarks):
+    def draw_landmarks(self):
+        # Draw face mesh connections
         mp_drawing.draw_landmarks(
             image=self.image,
-            landmark_list=face_landmarks,
-            connections=self.face_mesh.FACEMESH_TESSELATION,
+            landmark_list=self.landmarks,
+            connections=mp_face_mesh.FACEMESH_TESSELATION,
             landmark_drawing_spec=None,
-            connection_drawing_spec=self.drawing_styles.get_default_face_mesh_tesselation_style(),
+            connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_tesselation_style(),
         )
+        # Draw eyebrows and eyelids
         mp_drawing.draw_landmarks(
             image=self.image,
-            landmark_list=face_landmarks,
-            connections=self.face_mesh.FACEMESH_CONTOURS,
+            landmark_list=self.landmarks,
+            connections=mp_face_mesh.FACEMESH_CONTOURS,
             landmark_drawing_spec=None,
-            connection_drawing_spec=self.drawing_styles.get_default_face_mesh_contours_style(),
+            connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_contours_style(),
         )
+        # Draw irises
         mp_drawing.draw_landmarks(
             image=self.image,
-            landmark_list=face_landmarks,
-            connections=self.face_mesh.FACEMESH_IRISES,
+            landmark_list=self.landmarks,
+            connections=mp_face_mesh.FACEMESH_IRISES,
             landmark_drawing_spec=None,
-            connection_drawing_spec=self.drawing_styles.get_default_face_mesh_iris_connections_style(),
+            connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_iris_connections_style(),
         )
 
     def run(self):
@@ -58,7 +62,8 @@ class LandmarkDetector:
             # check if a face was detected
             if results.multi_face_landmarks:
                 # draw the landmarks for the first face detected
-                self.draw_landmarks(results.multi_face_landmarks[0])
+                self.landmarks = results.multi_face_landmarks[0]
+                self.draw_landmarks()
             # Flip the image horizontally for a selfie-view display.
             cv2.imshow("MediaPipe Face Mesh", cv2.flip(self.image, 1))
             # Press escape to exit
