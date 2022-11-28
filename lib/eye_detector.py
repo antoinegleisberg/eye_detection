@@ -159,6 +159,7 @@ class EyeDetector:
         while self.videoCapture.isOpened():
             self.get_frame_landmarks()
             self.draw_landmarks()
+            print(self.landmark.z)
             print(self.looking_at)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
