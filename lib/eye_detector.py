@@ -195,13 +195,67 @@ class EyeDetector:
     def looking_at(self) -> Direction:
         if self.landmarks is None:
             return Direction.CENTER
-        return Direction.CENTER
+
+        current_transform = self.compute_transform()
+        position = current_transform["position"]
+        rotation = current_transform["rotation"]
+        # eyes_coords = current_transform["eyes"]
+        # eyes_centers = current_transform["eyes_centers"]
+
+        x_position_shift = (position - self.reference["center"]["position"]).x / (
+            self.reference["move_right"]["position"] - self.reference["move_left"]["position"]
+        ).x
+        y_position_shift = (position - self.reference["center"]["position"]).y / (
+            self.reference["look_up"]["position"] - self.reference["look_down"]["position"]
+        ).y
+        x_rotation_shift = (rotation - self.reference["center"]["rotation"]).x / (
+            self.reference["look_right"]["rotation"] - self.reference["look_left"]["rotation"]
+        ).x
+        y_rotation_shift = (rotation - self.reference["center"]["rotation"]).y / (
+            self.reference["look_up"]["rotation"] - self.reference["look_down"]["rotation"]
+        ).y
+
+        # x_position_shift in [-1, 1]
+        # x_position_shift < 0 => left
+        # x_position_shift > 0 => right
+
+        # x_rotation_shift in [-1, 1]
+        # x_rotation_shift < 0 => left
+        # x_rotation_shift > 0 => right
+
+        # y_position_shift in [-1, 1]
+        # y_position_shift > 0 => up
+        # y_position_shift < 0 => down
+
+        # y_rotation_shift in [-1, 1]
+        # y_rotation_shift > 0 => up
+        # y_rotation_shift < 0 => down
+
+        # shifting x position also shifts x rotation by about the same factor
+        # so we normalize it
+        # no need to doo it for y because y position doesnt change as much
+        x_rotation_shift -= x_position_shift
+
+        # print(f"Position shift: {x_position_shift:.2f}, {y_position_shift:.2f}")
+        # print(f"Rotation shift: {x_rotation_shift:.2f}, {y_rotation_shift:.2f}")
+        # print()
+
+        looking_at = [0, 0]
+        if x_position_shift + x_rotation_shift < -0.6:
+            looking_at[0] = -1
+        elif x_position_shift + x_rotation_shift > 0.6:
+            looking_at[0] = 1
+        if y_position_shift + y_rotation_shift > 1:
+            looking_at[1] = -1
+        elif y_position_shift + y_rotation_shift < -1:
+            looking_at[1] = 1
+        return Direction(tuple(looking_at))
 
     def run(self) -> None:
         while self.videoCapture.isOpened():
             self.get_frame_landmarks()
             self.draw_landmarks()
-            self.looking_at
+            print(self.looking_at)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
         self.videoCapture.release()

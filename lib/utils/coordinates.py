@@ -14,6 +14,8 @@ class Coordinates:
         return Coordinates(self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __mul__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x * other.x, self.y * other.y, self.z * other.z)
         return Coordinates(self.x * other, self.y * other, self.z * other)
 
     def __truediv__(self, other):
