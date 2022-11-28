@@ -1,9 +1,11 @@
 import mediapipe as mp
 from pathlib import Path
 
+FACES_FILE_PATH = Path(__file__).resolve().parent / "mediapipe_faces.txt"
+
 
 def _generate_faces():
-    if Path("mediapipe_faces.txt").exists():
+    if FACES_FILE_PATH.exists():
         return
     edges = mp.solutions.face_mesh.FACEMESH_TESSELATION
     # connexions[i][j] true iff i and j are connected
@@ -11,7 +13,7 @@ def _generate_faces():
     for edge in edges:
         connexions[edge[0]][edge[1]] = True
         connexions[edge[1]][edge[0]] = True
-    with open("mediapipe_faces.txt", "w") as f:
+    with open(FACES_FILE_PATH, "w") as f:
         for edge in edges:
             i, j = edge
             for k in range(468):
@@ -21,7 +23,7 @@ def _generate_faces():
 
 def mediapipe_faces():
     _generate_faces()
-    with open("mediapipe_faces.txt", "r") as f:
+    with open(FACES_FILE_PATH, "r") as f:
         faces = f.read().splitlines()
         faces = [tuple(map(int, face.split())) for face in faces]
     return faces

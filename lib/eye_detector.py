@@ -2,12 +2,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from enum import Enum
-from utils.coordinates import Coordinates
 from screeninfo import get_monitors
 from typing import Mapping
 
-from landmark_detector import LandmarkDetector
-from utils.mp_faces import mediapipe_faces
+from .utils.coordinates import Coordinates
+from .landmark_detector import LandmarkDetector
+from .utils.mp_faces import mediapipe_faces
 
 # mediapipe modules
 mp_drawing = mp.solutions.drawing_utils
