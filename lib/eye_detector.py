@@ -3,8 +3,11 @@ import mediapipe as mp
 import numpy as np
 from enum import Enum
 from utils.coordinates import Coordinates
+from screeninfo import get_monitors
+from typing import Mapping
 
 from landmark_detector import LandmarkDetector
+from utils.mp_faces import mediapipe_faces
 
 # mediapipe modules
 mp_drawing = mp.solutions.drawing_utils
@@ -25,10 +28,12 @@ class Direction(Enum):
 
 
 class EyeDetector:
-    def __init__(self):
+    def __init__(self, fullscreen: bool = False):
         self.landmark_detector = LandmarkDetector()
+        self.screen_dimensions = Coordinates(get_monitors()[0].width, get_monitors()[0].height)
+        self.camera_dimensions = Coordinates(640, 480)  # width, height
         self.videoCapture = cv2.VideoCapture(0)
-        self.landmark = None
+        self.landmarks = None
         self.landmark_indices = {
             "right_eye": [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246],
             "left_eye": [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398],
@@ -37,79 +42,78 @@ class EyeDetector:
             "right_eyebrow": [46, 53, 52, 65, 55, 70, 63, 105, 66, 107],
             "left_eyebrow": [276, 283, 282, 295, 285, 300, 293, 334, 296, 336],
         }
-        self.reference_position = None
+        if fullscreen:
+            cv2.namedWindow("image", cv2.WND_PROP_FULLSCREEN)
+            cv2.setWindowProperty("image", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        self.reference = dict()
+        self.calibrate()
 
-    def get_frame_landmarks(self) -> None:
+    def get_frame_landmarks(self) -> bool:
+        """Gets the landmarks of the current frame and stores them in self.landmarks"""
         success, image = self.videoCapture.read()
         if not success:
-            return
+            return False
         self.landmark_detector.set_image(image)
         results = self.landmark_detector.process_image()
         if results.multi_face_landmarks:
-            self.landmark = results.multi_face_landmarks[0].landmark
+            self.landmarks = results.multi_face_landmarks[0].landmark
+            return True
+        return False
 
     def draw_landmarks(self) -> None:
-        image = np.zeros((480, 640, 3), np.uint8)
+        """Draws the landmarks on an empty image and displays it"""
+        width, height = self.camera_dimensions.x, self.camera_dimensions.y
+        image = np.zeros((height, width, 3), np.uint8)  # numpy first 2 dimensions are switched
         for idx in self.landmark_indices["right_eye"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (0, 255, 0), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (0, 255, 0), -1)
         for idx in self.landmark_indices["left_eye"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (0, 255, 255), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (0, 255, 255), -1)
         for idx in self.landmark_indices["right_iris"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (0, 0, 255), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (0, 0, 255), -1)
         for idx in self.landmark_indices["left_iris"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (255, 255, 0), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (255, 255, 0), -1)
         for idx in self.landmark_indices["right_eyebrow"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (255, 0, 0), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (255, 0, 0), -1)
         for idx in self.landmark_indices["left_eyebrow"]:
-            landmark = self.landmark[idx]
-            image = cv2.circle(image, (int(landmark.x * 640), int(landmark.y * 480)), 2, (255, 0, 255), -1)
+            landmark = self.landmarks[idx]
+            image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (255, 0, 255), -1)
         image = cv2.flip(image, 1)
         cv2.imshow("image", image)
 
-    def calibrate(self) -> None:
-        image = np.zeros((480, 640, 3), np.uint8)
-        image = cv2.putText(
-            image,
-            "Please look at the center of the screen and press any key to continue",
-            (50, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (255, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
-        cv2.imshow("image", image)
-        cv2.waitKey(0)
-        self.get_frame_landmarks()
-        self.reference_position = {
-            "landmarks": self.landmark,
-            "eyes_coords": self.eyes_coords,
-            "normal": self.normal,
-        }
+    def _compute_normal(self) -> Coordinates:
+        """Computes the normal of the face"""
+        faces = mediapipe_faces()
+        normal = Coordinates(0, 0, 0)
+        for i1, i2, i3 in faces:
+            v1, v2, v3 = self.landmarks[i1], self.landmarks[i2], self.landmarks[i3]
+            face_normal = Coordinates.cross_product(
+                Coordinates(v2.x - v1.x, v2.y - v1.y, v2.z - v1.z),
+                Coordinates(v3.x - v1.x, v3.y - v1.y, v3.z - v1.z),
+            ).normalize()
+            if face_normal.z < 0:
+                face_normal = face_normal * -1
+            normal += face_normal
+        return normal.normalize()
 
-    @property
-    def normal(self) -> Coordinates:
-        return
-
-    @property
-    def eyes_coords(self):
+    def _local_eye_coords(self):
         # Get landmarks coords
         right_eye_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_eye"]
+            idx: Coordinates(self.landmarks[idx].x, self.landmarks[idx].y) for idx in self.landmark_indices["right_eye"]
         }
         left_eye_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_eye"]
+            idx: Coordinates(self.landmarks[idx].x, self.landmarks[idx].y) for idx in self.landmark_indices["left_eye"]
         }
         right_iris_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["right_iris"]
+            idx: Coordinates(self.landmarks[idx].x, self.landmarks[idx].y)
+            for idx in self.landmark_indices["right_iris"]
         }
         left_iris_coords = {
-            idx: Coordinates(self.landmark[idx].x, self.landmark[idx].y) for idx in self.landmark_indices["left_iris"]
+            idx: Coordinates(self.landmarks[idx].x, self.landmarks[idx].y) for idx in self.landmark_indices["left_iris"]
         }
 
         # Normalize coords
@@ -131,36 +135,73 @@ class EyeDetector:
             "normalized_left_iris": normalized_left_iris_coords,
         }
 
+    def compute_transform(self) -> Mapping[str, Coordinates]:
+        """Computes the position and rotation of the head with the coordinates of the landmarks"""
+        position = Coordinates(
+            sum([landmark_coords.x for landmark_coords in self.landmarks]) / len(self.landmarks),
+            sum([landmark_coords.y for landmark_coords in self.landmarks]) / len(self.landmarks),
+            sum([landmark_coords.z for landmark_coords in self.landmarks]) / len(self.landmarks),
+        )
+        eyes_coords = self._local_eye_coords()
+        eyes_centers = {
+            "right_eye": sum(eyes_coords["right_eye"].values(), Coordinates()) / len(eyes_coords["right_eye"]),
+            "left_eye": sum(eyes_coords["left_eye"].values(), Coordinates()) / len(eyes_coords["left_eye"]),
+            "right_iris": sum(eyes_coords["right_iris"].values(), Coordinates()) / len(eyes_coords["right_iris"]),
+            "left_iris": sum(eyes_coords["left_iris"].values(), Coordinates()) / len(eyes_coords["left_iris"]),
+        }
+
+        return {
+            "position": position,
+            "rotation": self._compute_normal(),
+            "eyes": eyes_coords,
+            "eyes_centers": eyes_centers,
+        }
+
+    def calibrate(self) -> None:
+        # numpy first 2 dimensions are switched
+        instructions = {
+            "center": "Look at the center of the screen",
+            "move_left": "Move your head to the left side of the screen",
+            "move_right": "Move your head to the right side of the screen",
+            "look_left": "Look at the left side of the screen",
+            "look_right": "Look at the right side of the screen",
+            "look_up": "Look at the top of the screen",
+            "look_down": "Look at the bottom of the screen",
+        }
+        for key, value in instructions.items():
+            image = np.zeros((self.camera_dimensions.y, self.camera_dimensions.x, 3), np.uint8)
+            image = cv2.putText(
+                image,
+                value,
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
+            cv2.imshow("image", image)
+            cv2.waitKey(0)
+            while not self.get_frame_landmarks():
+                cv2.waitKey(0)
+            self.reference[key] = self.compute_transform()
+        for key, value in self.reference.items():
+            # print(key)
+            # print(value["position"] - self.reference["center"]["position"], end="")
+            # print(value["rotation"] - self.reference["center"]["rotation"])
+            pass
+
     @property
     def looking_at(self) -> Direction:
-        if self.landmark is None:
+        if self.landmarks is None:
             return Direction.CENTER
-
-        # Calculate centers
-        eye_coords = self.eye_coords
-        right_iris_coords = eye_coords["right_iris"]
-        left_iris_coords = eye_coords["left_iris"]
-        right_iris_center = sum([coord for coord in right_iris_coords.values()], Coordinates(0, 0)) / len(
-            right_iris_coords
-        )
-        left_iris_center = sum([coord for coord in left_iris_coords.values()], Coordinates(0, 0)) / len(
-            left_iris_coords
-        )
-
-        # Get direction
-        # print(right_eye_center, left_eye_center, right_iris_center, left_iris_center)
-        if right_iris_center.x > 0.55 and left_iris_center.x > 0.55:
-            return Direction.CENTER_LEFT
-        elif right_iris_center.x < 0.45 and left_iris_center.x < 0.45:
-            return Direction.CENTER_RIGHT
         return Direction.CENTER
 
     def run(self) -> None:
         while self.videoCapture.isOpened():
             self.get_frame_landmarks()
             self.draw_landmarks()
-            print(self.landmark.z)
-            print(self.looking_at)
+            self.looking_at
             if cv2.waitKey(5) & 0xFF == 27:
                 break
         self.videoCapture.release()
