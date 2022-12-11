@@ -4,12 +4,13 @@ import numpy as np
 import random
 from pathlib import Path
 import csv
+import time
 
 
 class ImageGenerator:
     def __init__(self, circle_size: int = 10) -> None:
-        self.screen_width = get_monitors()[0].width
-        self.screen_height = get_monitors()[0].height
+        self.screen_width = get_monitors()[0].width-50
+        self.screen_height = get_monitors()[0].height-50
         self.image = np.full((self.screen_height, self.screen_width, 3), 255, np.uint8)
         self.videoCapture = self.launch()
         self.point_size = circle_size
@@ -24,12 +25,13 @@ class ImageGenerator:
     def init_csv(self):
         self.csvfile = open(self.data_folder / self.dataset_name, "a+")
         self.csv_reader = csv.reader(self.csvfile)
-        self.csv_writer = csv.writer(self.csvfile)
+        self.csv_writer = csv.DictWriter(self.csvfile, fieldnames=('img','x','y'), lineterminator = '\n')
+        self.csv_writer.writeheader()
         self.next_id = len(list(self.image_folder.iterdir()))
 
     def launch(self):
         cv2.namedWindow("Dataset Generator")
-        videoCapture = cv2.VideoCapture(0)
+        videoCapture = cv2.VideoCapture(1)
         if not videoCapture.isOpened():
             raise Exception("Starting video capture failed")
         return videoCapture
@@ -38,8 +40,8 @@ class ImageGenerator:
         ret, frame = self.videoCapture.read()
         if not ret:
             return
-        self.csv_writer.writerow([f"{self.next_id}.png", x, y])
-        cv2.imwrite(self.image_folder / Path(f"{self.next_id}.png"), frame)
+        self.csv_writer.writerow({'img':f"{self.next_id}.png",'x': x,'y': y})
+        cv2.imwrite("data/images/"+f"{self.next_id}.png", frame)
         self.next_id += 1
 
     def show_random_point(self):
@@ -76,6 +78,7 @@ class ImageGenerator:
                 break
             elif key == 13:
                 self.save(x, y)
+                time.sleep(0.2)
                 x, y = self.show_random_point()
 
         self.csvfile.close()
@@ -84,5 +87,8 @@ class ImageGenerator:
 
 
 if __name__ == "__main__":
+    print("launching dataset generation")
+    print("please make sure your eyes are in the cameras viewpoint")
+
     generator = ImageGenerator()
     generator.run()
