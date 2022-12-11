@@ -28,11 +28,16 @@ class Direction(Enum):
 
 
 class EyeDetector:
-    def __init__(self, fullscreen: bool = False):
+    def __init__(
+        self,
+        fullscreen: bool = False,
+        dynamic: bool = False,
+    ):
         self.landmark_detector = LandmarkDetector()
+        self.videoCapture = cv2.VideoCapture(0)
+        self.dynamic = dynamic
         self.screen_dimensions = Coordinates(get_monitors()[0].width, get_monitors()[0].height)
         self.camera_dimensions = Coordinates(640, 480)  # width, height
-        self.videoCapture = cv2.VideoCapture(0)
         self.landmarks = None
         self.landmark_indices = {
             "right_eye": [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246],
@@ -42,23 +47,27 @@ class EyeDetector:
             "right_eyebrow": [46, 53, 52, 65, 55, 70, 63, 105, 66, 107],
             "left_eyebrow": [276, 283, 282, 295, 285, 300, 293, 334, 296, 336],
         }
+        self._blinking = False
         if fullscreen:
             cv2.namedWindow("image", cv2.WND_PROP_FULLSCREEN)
             cv2.setWindowProperty("image", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         self.reference = dict()
         self.calibrate()
 
-    def get_frame_landmarks(self) -> bool:
-        """Gets the landmarks of the current frame and stores them in self.landmarks"""
-        success, image = self.videoCapture.read()
-        if not success:
-            return False
+    def set_image(self, image) -> bool:
         self.landmark_detector.set_image(image)
         results = self.landmark_detector.process_image()
         if results.multi_face_landmarks:
             self.landmarks = results.multi_face_landmarks[0].landmark
             return True
         return False
+
+    def get_frame_landmarks(self) -> bool:
+        """Gets the landmarks of the current frame and stores them in self.landmarks"""
+        success, image = self.videoCapture.read()
+        if not success:
+            return False
+        return self.set_image(image)
 
     def draw_landmarks(self) -> None:
         """Draws the landmarks on an empty image and displays it"""
@@ -190,6 +199,9 @@ class EyeDetector:
             # print(value["position"] - self.reference["center"]["position"], end="")
             # print(value["rotation"] - self.reference["center"]["rotation"])
             pass
+        if not self.dynamic:
+            self.videoCapture.release()
+            cv2.destroyAllWindows()
 
     @property
     def looking_at(self) -> Direction:
@@ -199,7 +211,6 @@ class EyeDetector:
         current_transform = self.compute_transform()
         position = current_transform["position"]
         rotation = current_transform["rotation"]
-        # eyes_coords = current_transform["eyes"]
         # eyes_centers = current_transform["eyes_centers"]
 
         x_position_shift = (position - self.reference["center"]["position"]).x / (
@@ -214,6 +225,16 @@ class EyeDetector:
         y_rotation_shift = (rotation - self.reference["center"]["rotation"]).y / (
             self.reference["look_up"]["rotation"] - self.reference["look_down"]["rotation"]
         ).y
+
+        # Ne fonctionne pas : quand on tourne la tete a gauche, les yeux sont a droite, les effets se contrent
+        # right_eye_center = eyes_centers["right_eye"]
+        # left_eye_center = eyes_centers["left_eye"]
+        # right_iris_center = eyes_centers["right_iris"]
+        # left_iris_center = eyes_centers["left_iris"]
+        # right_iris_shift = right_eye_center - right_iris_center
+        # left_iris_shift = left_eye_center - left_iris_center
+        # x_iris_shift = (right_iris_shift.x + left_iris_shift.x) / 2
+        # y_iris_shift = (right_iris_shift.y + left_iris_shift.y) / 2
 
         # x_position_shift in [-1, 1]
         # x_position_shift < 0 => left
@@ -251,6 +272,37 @@ class EyeDetector:
             looking_at[1] = 1
         return Direction(tuple(looking_at))
 
+    @property
+    def blinked(self) -> bool:
+        if self.landmarks is None:
+            return False
+        transform = self.compute_transform()
+        eyes = transform["eyes"]
+        left_eye = eyes["normalized_left_eye"]
+        right_eye = eyes["normalized_right_eye"]
+        left_eye_center = sum(left_eye.values(), Coordinates()) / len(left_eye)
+        right_eye_center = sum(right_eye.values(), Coordinates()) / len(right_eye)
+
+        # compute wether the points are in a line or not
+        # if they are, the eye is closed
+        blinking = False
+        if (
+            sum(abs(coord.y - left_eye_center.y) for coord in left_eye.values())
+            + sum(abs(coord.y - right_eye_center.y) for coord in right_eye.values())
+            < 5
+        ):
+            blinking = True
+
+        if blinking:
+            if not self._blinking:
+                self._blinking = True
+                return True
+            else:
+                return False
+        else:
+            self._blinking = False
+            return False
+
     def run(self) -> None:
         while self.videoCapture.isOpened():
             self.get_frame_landmarks()
@@ -262,5 +314,5 @@ class EyeDetector:
 
 
 if __name__ == "__main__":
-    eye_detector = EyeDetector()
+    eye_detector = EyeDetector(dynamic=True)
     eye_detector.run()
