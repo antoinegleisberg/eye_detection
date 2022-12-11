@@ -83,7 +83,15 @@ class Game:
             if blinking:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
                 bullets.append(
-                    Bullet(new_player_x_position + 960, new_player_y_position + 500, mouse_x, mouse_y, (0, 0, 0))
+                    Bullet(
+                        new_player_x_position + 960,
+                        new_player_y_position + 500,
+                        new_player_x_position,
+                        new_player_y_position,
+                        mouse_x,
+                        mouse_y,
+                        (0, 0, 0),
+                    )
                 )
             for bullet in bullets:
                 bullet.move()
@@ -129,11 +137,11 @@ class Ennemy(Player):
 
 
 class Bullet:
-    def __init__(self, x, y, mouse_x, mouse_y, color):
+    def __init__(self, x, y, screen_x, screen_y, mouse_x, mouse_y, color):
         self.x = x  # position in the world
         self.y = y
-        self.screen_x = 960  # position on the screen
-        self.screen_y = 500
+        self.screen_x = screen_x  # position on the screen
+        self.screen_y = screen_y
         self.radius = 10
         self.angle = np.arctan2(mouse_y - 500, mouse_x - 960)
         self.color = color
