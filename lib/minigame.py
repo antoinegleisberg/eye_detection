@@ -25,6 +25,12 @@ class Game:
         self._init_background()
 
         self.video_capture = cv2.VideoCapture(0)
+        self.videoWriter = cv2.VideoWriter(
+            "minigame_video.avi",
+            cv2.VideoWriter_fourcc(*"MJPG"),
+            10,
+            (int(self.video_capture.get(3)), int(self.video_capture.get(4))),
+        )
 
     def init_ennemies(self, number):
         ennemies = []
@@ -70,6 +76,7 @@ class Game:
                 continue
 
             self.eye_input.set_image(image)
+            self.videoWriter.write(image)
             blinking = self.eye_input.blinked
             direction = self.eye_input.looking_at
 
