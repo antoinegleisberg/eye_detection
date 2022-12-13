@@ -40,13 +40,13 @@ class ImageGenerator:
         ret, frame = self.videoCapture.read()
         if not ret:
             return
-<<<<<<< HEAD:generate_dataset.py
+#<<<<<<< HEAD:generate_dataset.py
         self.csv_writer.writerow({'img':f"{self.next_id}.png",'x': x,'y': y})
         cv2.imwrite("data/images/"+f"{self.next_id}.png", frame)
-=======
+#=======
         self.csv_writer.writerow([f"{self.next_id}.png", x, y])
         cv2.imwrite(str(self.image_folder / Path(f"{self.next_id}.png")), frame)
->>>>>>> cb423fd54da810ba1198421c6d5daf98db4f05ee:lib/image_generator.py
+#>>>>>>> cb423fd54da810ba1198421c6d5daf98db4f05ee:lib/image_generator.py
         self.next_id += 1
 
     def show_random_point(self):
@@ -82,9 +82,10 @@ class ImageGenerator:
             if key == 27:
                 break
             elif key == 13:
-                self.save(x, y)
                 time.sleep(0.2)
                 x, y = self.show_random_point()
+                ret, frame = self.videoCapture.read()
+                self.save(x,y)
 
         self.csvfile.close()
         self.videoCapture.release()
