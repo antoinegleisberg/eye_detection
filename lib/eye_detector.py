@@ -35,6 +35,12 @@ class EyeDetector:
     ):
         self.landmark_detector = LandmarkDetector()
         self.videoCapture = cv2.VideoCapture(0)
+        self.videoWriter = cv2.VideoWriter(
+            "eye_detector_video.avi",
+            cv2.VideoWriter_fourcc(*"MJPG"),
+            10,
+            (int(self.videoCapture.get(3)), int(self.videoCapture.get(4))),
+        )
         self.dynamic = dynamic
         self.screen_dimensions = Coordinates(get_monitors()[0].width, get_monitors()[0].height)
         self.camera_dimensions = Coordinates(640, 480)  # width, height
@@ -92,6 +98,7 @@ class EyeDetector:
             landmark = self.landmarks[idx]
             image = cv2.circle(image, (int(landmark.x * width), int(landmark.y * height)), 2, (255, 0, 255), -1)
         image = cv2.flip(image, 1)
+        self.landmark_drawing = image
         cv2.imshow("image", image)
 
     def _compute_normal(self) -> Coordinates:
@@ -307,10 +314,13 @@ class EyeDetector:
         while self.videoCapture.isOpened():
             self.get_frame_landmarks()
             self.draw_landmarks()
-            print(self.looking_at)
+            if self.dynamic:
+                self.videoWriter.write(self.landmark_drawing)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
         self.videoCapture.release()
+        if self.dynamic:
+            self.videoWriter.release()
 
 
 if __name__ == "__main__":

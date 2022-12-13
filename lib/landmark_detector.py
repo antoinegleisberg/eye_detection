@@ -90,13 +90,15 @@ class LandmarkDetector:
                 self.draw_landmarks()  # draw the landmarks for the first face detected
                 self.show_landmarks()
 
-            self.videoWriter.write(self.image)
+            if self.to_video:
+                self.videoWriter.write(self.image)
 
             # Press escape to exit
             if cv2.waitKey(5) & 0xFF == 27:
                 break
         self.videoCapture.release()
-        self.videoWriter.release()
+        if self.to_video:
+            self.videoWriter.release()
 
 
 if __name__ == "__main__":
