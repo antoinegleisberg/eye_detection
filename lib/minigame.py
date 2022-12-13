@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import QUIT
 import sys
-from .eye_detector import EyeDetector
+from eye_detector import EyeDetector
 import cv2
 import os
 import numpy as np
@@ -172,7 +172,7 @@ class Bullet:
         pygame.draw.circle(display, self.color, (self.screen_x + offset[0], self.screen_y + offset[1]), self.radius, 0)
 
 
-def detect_collision(bullets: list[Bullet], ennemies: list[Player]):
+def detect_collision(bullets, ennemies):
     n_bullet = 0
     while n_bullet < len(bullets):
         bullet = bullets[n_bullet]
